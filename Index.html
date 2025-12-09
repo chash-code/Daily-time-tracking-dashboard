@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Time Tracker - AI Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .glass {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .activity-card {
+            transition: all 0.3s ease;
+            border-left: 4px solid #667eea;
+        }
+        
+        .activity-card:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .animate-in {
+            animation: slideIn 0.5s ease-out;
+        }
+        
+        .category-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .no-data-illustration {
+            width: 200px;
+            height: 200px;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body class="p-4">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <header class="glass p-6 mb-6 animate-in">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-800">⏰ Daily Time Tracker</h1>
+                    <p class="text-gray-600 mt-1">AI-Powered Analytics Dashboard</p>
+                </div>
+                <div id="authSection">
+                    <button onclick="showAuth()" class="btn-primary text-white px-6 py-3 rounded-lg font-semibold">
+                        🔐 Login
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Auth Modal -->
+        <div id="authModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="glass p-8 max-w-md w-full mx-4">
+                <h2 class="text-2xl font-bold mb-6 text-gray-800">Welcome Back!</h2>
+                <input type="email" id="emailInput" placeholder="Email" class="w-full p-3 border border-gray-300 rounded-lg mb-4">
+                <input type="password" id="passwordInput" placeholder="Password" class="w-full p-3 border border-gray-300 rounded-lg mb-6">
+                <button onclick="login()" class="btn-primary text-white px-6 py-3 rounded-lg font-semibold w-full">
+                    Login
+                </button>
+                <p class="text-center text-gray-600 mt-4 text-sm">Demo: Use any email/password</p>
+            </div>
+        </div>
+
+        <!-- Main Content (Hidden until login) -->
+        <div id="mainContent" class="hidden">
+            <!-- Date Picker & Stats -->
+            <div class="glass p-6 mb-6 animate-in">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div class="flex items-center gap-4">
+                        <label class="text-gray-700 font-semibold">Select Date:</label>
+                        <input type="date" id="dateInput" class="p-3 border border-gray-300 rounded-lg" onchange="loadActivities()">
+                    </div>
+                    <div class="flex gap-4">
+                        <div class="text-center">
+                            <p class="text-sm text-gray-600">Total Time</p>
+                            <p id="totalTime" class="text-2xl font-bold text-purple-600">0h 0m</p>
+                        </div>
+                        <div class="text-center">
+                            <p class="text-sm text-gray-600">Remaining</p>
+                            <p id="remainingTime" class="text-2xl font-bold text-green-600">24h 0m</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Left: Activity Input -->
+                <div class="lg:col-span-1">
+                    <div class="glass p-6 animate-in">
+                        <h2 class="text-xl font-bold mb-4 text-gray-800">📝 Log Activity</h2>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Activity Name</label>
+                                <input type="text" id="activityName" placeholder="e.g., Team Meeting" class="w-full p-3 border border-gray-300 rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                                <select id="activityCategory" class="w-full p-3 border border-gray-300 rounded-lg">
+                                    <option value="Work">💼 Work</option>
+                                    <option value="Study">📚 Study</option>
+                                    <option value="Sleep">😴 Sleep</option>
+                                    <option value="Entertainment">🎮 Entertainment</option>
+                                    <option value="Exercise">💪 Exercise</option>
+                                    <option value="Other">📌 Other</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Duration (minutes)</label>
+                                <input type="number" id="activityDuration" placeholder="60" min="1" max="1440" class="w-full p-3 border border-gray-300 rounded-lg">
+                                <p id="validationMsg" class="text-xs text-gray-500 mt-1"></p>
+                            </div>
+                            <button onclick="addActivity()" class="btn-primary text-white px-6 py-3 rounded-lg font-semibold w-full">
+                                ✅ Add Activity
+                            </button>
+                        </div>
+
+                        <div id="activitiesList" class="mt-6 space-y-3">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-3">Today's Activities</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Dashboard -->
+                <div class="lg:col-span-2">
+                    <div class="glass p-6 animate-in">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-xl font-bold text-gray-800">📊 Analytics Dashboard</h2>
+                            <button onclick="analyzeDay()" id="analyzeBtn" class="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed">
+                                🤖 Analyze
+                            </button>
+                        </div>
+
+                        <div id="dashboardContent">
+                            <!-- No Data State -->
+                            <div id="noDataState" class="text-center py-12">
+                                <svg class="no-data-illustration" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                                    <circle cx="100" cy="100" r="80" fill="#f3f4f6"/>
+                                    <path d="M100 40 L100 120 L140 100" stroke="#9ca3af" stroke-width="8" stroke-linecap="round" fill="none"/>
+                                    <circle cx="100" cy="100" r="10" fill="#9ca3af"/>
+                                </svg>
+                                <h3 class="text-2xl font-bold text-gray-700 mt-6 mb-2">No Data Available</h3>
+                                <p class="text-gray-500 mb-6">Start logging your activities for today!</p>
+                                <button onclick="document.getElementById('activityName').focus()" class="btn-primary text-white px-6 py-3 rounded-lg font-semibold">
+                                    🚀 Start Logging Your Day Now
+                                </button>
+                            </div>
+
+                            <!-- Analytics State (Hidden initially) -->
+                            <div id="analyticsState" class="hidden">
+                                <!-- Summary Cards -->
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                                    <div class="bg-blue-50 p-4 rounded-lg">
+                                        <p class="text-sm text-gray-600">Total Hours</p>
+                                        <p id="summaryHours" class="text-2xl font-bold text-blue-600">0h</p>
+                                    </div>
+                                    <div class="bg-green-50 p-4 rounded-lg">
+                                        <p class="text-sm text-gray-600">Activities</p>
+                                        <p id="summaryCount" class="text-2xl font-bold text-green-600">0</p>
+                                    </div>
+                                    <div class="bg-purple-50 p-4 rounded-lg">
+                                        <p class="text-sm text-gray-600">Top Category</p>
+                                        <p id="summaryTop" class="text-2xl font-bold text-purple-600">-</p>
+                                    </div>
+                                </div>
+
+                                <!-- Charts -->
+                                <div class="space-y-6">
+                                    <div>
+                                        <h3 class="text-lg font-semibold mb-3 text-gray-800">📈 Time per Category</h3>
+                                        <canvas id="pieChart" class="max-h-64"></canvas>
+                                    </div>
+                                    <div>
+                                        <h3 class="text-lg font-semibold mb-3 text-gray-800">⏱️ Activity Durations</h3>
+                                        <canvas id="barChart" class="max-h-64"></canvas>
+                                    </div>
+                                    <div>
+                                        <h3 class="text-lg font-semibold mb-3 text-gray-800">🕐 Timeline View</h3>
+                                        <div id="timelineView" class="space-y-2"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Data storage (simulating Firebase)
+        let currentUser = null;
+        let activities = {};
+        let charts = { pie: null, bar: null };
+
+        // Initialize date to today
+        document.addEventListener('DOMContentLoaded', () => {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('dateInput').value = today;
+        });
+
+        // Auth functions
+        function showAuth() {
+            document.getElementById('authModal').classList.remove('hidden');
+        }
+
+        function login() {
+            const email = document.getElementById('emailInput').value;
+            const password = document.getElementById('passwordInput').value;
+            
+            if (email && password) {
+                currentUser = email;
+                document.getElementById('authModal').classList.add('hidden');
+                document.getElementById('authSection').innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <span class="text-gray-700">👤 ${email}</span>
+                        <button onclick="logout()" class="bg-red-500 text-white px-4 py-2 rounded-lg">Logout</button>
+                    </div>
+                `;
+                document.getElementById('mainContent').classList.remove('hidden');
+                loadActivities();
+            } else {
+                alert('Please enter email and password');
+            }
+        }
+
+        function logout() {
+            currentUser = null;
+            document.getElementById('mainContent').classList.add('hidden');
+            document.getElementById('authSection').innerHTML = `
+                <button onclick="showAuth()" class="btn-primary text-white px-6 py-3 rounded-lg font-semibold">
+                    🔐 Login
+                </button>
+            `;
+            activities = {};
+        }
+
+        // Activity functions
+        function addActivity() {
+            const name = document.getElementById('activityName').value.trim();
+            const category = document.getElementById('activityCategory').value;
+            const duration = parseInt(document.getElementById('activityDuration').value);
+            const date = document.getElementById('dateInput').value;
+
+            if (!name || !duration) {
+                alert('Please fill in all fields');
+                return;
+            }
+
+            // Calculate total minutes for the day
+            const dateKey = date;
+            if (!activities[dateKey]) activities[dateKey] = [];
+            
+            const totalMinutes = activities[dateKey].reduce((sum, act) => sum + act.duration, 0);
+            
+            if (totalMinutes + duration > 1440) {
+                alert(`Cannot add activity! You only have ${1440 - totalMinutes} minutes remaining for this day.`);
+                return;
+            }
+
+            // Add activity
+            activities[dateKey].push({
+                id: Date.now(),
+                name,
+                category,
+                duration,
+                timestamp: new Date().toISOString()
+            });
+
+            // Clear inputs
+            document.getElementById('activityName').value = '';
+            document.getElementById('activityDuration').value = '';
+
+            loadActivities();
+        }
+
+        function deleteActivity(id) {
+            const date = document.getElementById('dateInput').value;
+            if (activities[date]) {
+                activities[date] = activities[date].filter(a => a.id !== id);
+                loadActivities();
+            }
+        }
+
+        function editActivity(id) {
+            const date = document.getElementById('dateInput').value;
+            const activity = activities[date].find(a => a.id === id);
+            if (activity) {
+                const newName = prompt('Edit activity name:', activity.name);
+                const newDuration = prompt('Edit duration (minutes):', activity.duration);
+                
+                if (newName && newDuration) {
+                    activity.name = newName;
+                    activity.duration = parseInt(newDuration);
+                    loadActivities();
+                }
+            }
+        }
+
+        function loadActivities() {
+            const date = document.getElementById('dateInput').value;
+            const dateActivities = activities[date] || [];
+            
+            // Update time stats
+            const totalMinutes = dateActivities.reduce((sum, act) => sum + act.duration, 0);
+            const hours = Math.floor(totalMinutes / 60);
+            const minutes = totalMinutes % 60;
+            const remainingMinutes = 1440 - totalMinutes;
+            const remHours = Math.floor(remainingMinutes / 60);
+            const remMinutes = remainingMinutes % 60;
+            
+            document.getElementById('totalTime').textContent = `${hours}h ${minutes}m`;
+            document.getElementById('remainingTime').textContent = `${remHours}h ${remMinutes}m`;
+            document.getElementById('validationMsg').textContent = `Remaining: ${remainingMinutes} minutes`;
+
+            // Update activities list
+            const list = document.getElementById('activitiesList');
+            const header = '<h3 class="text-lg font-semibold text-gray-800 mb-3">Today\'s Activities</h3>';
+            
+            if (dateActivities.length === 0) {
+                list.innerHTML = header + '<p class="text-gray-500 text-sm">No activities logged yet</p>';
+            } else {
+                const activitiesHTML = dateActivities.map(act => `
+                    <div class="activity-card bg-white p-4 rounded-lg">
+                        <div class="flex justify-between items-start">
+                            <div class="flex-1">
+                                <h4 class="font-semibold text-gray-800">${act.name}</h4>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <span class="category-badge bg-purple-100 text-purple-700">${act.category}</span>
+                                    <span class="text-sm text-gray-600">${act.duration} min</span>
+                                </div>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="editActivity(${act.id})" class="text-blue-500 hover:text-blue-700">✏️</button>
+                                <button onclick="deleteActivity(${act.id})" class="text-red-500 hover:text-red-700">🗑️</button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+                list.innerHTML = header + activitiesHTML;
+            }
+
+            // Enable/disable analyze button
+            const analyzeBtn = document.getElementById('analyzeBtn');
+            if (totalMinutes >= 1440 || (dateActivities.length > 0 && totalMinutes > 0)) {
+                analyzeBtn.disabled = false;
+            } else {
+                analyzeBtn.disabled = true;
+            }
+        }
+
+        function analyzeDay() {
+            const date = document.getElementById('dateInput').value;
+            const dateActivities = activities[date] || [];
+            
+            if (dateActivities.length === 0) {
+                return;
+            }
+
+            // Show analytics state, hide no data
+            document.getElementById('noDataState').classList.add('hidden');
+            document.getElementById('analyticsState').classList.remove('hidden');
+
+            // Calculate statistics
+            const totalMinutes = dateActivities.reduce((sum, act) => sum + act.duration, 0);
+            const categoryStats = {};
+            
+            dateActivities.forEach(act => {
+                if (!categoryStats[act.category]) {
+                    categoryStats[act.category] = 0;
+                }
+                categoryStats[act.category] += act.duration;
+            });
+
+            const topCategory = Object.entries(categoryStats).sort((a, b) => b[1] - a[1])[0];
+
+            // Update summary
+            document.getElementById('summaryHours').textContent = `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`;
+            document.getElementById('summaryCount').textContent = dateActivities.length;
+            document.getElementById('summaryTop').textContent = topCategory ? topCategory[0] : '-';
+
+            // Create pie chart
+            createPieChart(categoryStats);
+            
+            // Create bar chart
+            createBarChart(dateActivities);
+            
+            // Create timeline
+            createTimeline(dateActivities);
+        }
+
+        function createPieChart(categoryStats) {
+            const ctx = document.getElementById('pieChart');
+            
+            if (charts.pie) {
+                charts.pie.destroy();
+            }
+
+            const colors = {
+                'Work': '#3b82f6',
+                'Study': '#10b981',
+                'Sleep': '#8b5cf6',
+                'Entertainment': '#f59e0b',
+                'Exercise': '#ef4444',
+                'Other': '#6b7280'
+            };
+
+            charts.pie = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: Object.keys(categoryStats),
+                    datasets: [{
+                        data: Object.values(categoryStats),
+                        backgroundColor: Object.keys(categoryStats).map(cat => colors[cat] || '#6b7280')
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const minutes = context.parsed;
+                                    const hours = Math.floor(minutes / 60);
+                                    const mins = minutes % 60;
+                                    return `${context.label}: ${hours}h ${mins}m`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createBarChart(activities) {
+            const ctx = document.getElementById('barChart');
+            
+            if (charts.bar) {
+                charts.bar.destroy();
+            }
+
+            charts.bar = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: activities.map(act => act.name),
+                    datasets: [{
+                        label: 'Duration (minutes)',
+                        data: activities.map(act => act.duration),
+                        backgroundColor: '#667eea'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Minutes'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createTimeline(activities) {
+            const timeline = document.getElementById('timelineView');
+            let currentTime = 0;
+            
+            const timelineHTML = activities.map(act => {
+                const startHour = Math.floor(currentTime / 60);
+                const startMin = currentTime % 60;
+                currentTime += act.duration;
+                const endHour = Math.floor(currentTime / 60);
+                const endMin = currentTime % 60;
+                
+                return `
+                    <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                        <div class="text-sm text-gray-600 min-w-[100px]">
+                            ${String(startHour).padStart(2, '0')}:${String(startMin).padStart(2, '0')} - ${String(endHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')}
+                        </div>
+                        <div class="flex-1">
+                            <div class="h-2 bg-purple-500 rounded-full" style="width: ${(act.duration / 1440) * 100}%"></div>
+                        </div>
+                        <div class="text-sm font-medium text-gray-800">${act.name}</div>
+                    </div>
+                `;
+            }).join('');
+            
+            timeline.innerHTML = timelineHTML;
+        }
+    </script>
+</body>
+</html>
